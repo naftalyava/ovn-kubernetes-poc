@@ -627,17 +627,19 @@ func (n *OvnNode) Start(ctx context.Context, wg *sync.WaitGroup) error {
 		if err := cniServer.Start(cni.HandleCNIRequest); err != nil {
 			return err
 		}
+	}
 
-		// Write CNI config file if it doesn't already exist
-		if err := config.WriteCNIConfig(); err != nil {
-			return err
-		}
+	// Write CNI config file if it doesn't already exist
+	if err := config.WriteCNIConfig(); err != nil {
+		return err
 	}
 
 	// Start the health checking server used by egressip, if EgressIPNodeHealthCheckPort is specified
-	if err := n.startEgressIPHealthCheckingServer(wg, mgmtPortConfig); err != nil {
-		return err
-	}
+	/*
+		if err := n.startEgressIPHealthCheckingServer(wg, mgmtPortConfig); err != nil {
+			return err
+		}
+	*/
 
 	klog.Infof("OVN Kube Node initialized and ready.")
 	return nil
