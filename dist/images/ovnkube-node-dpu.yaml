@@ -6,7 +6,7 @@
 kind: DaemonSet
 apiVersion: apps/v1
 metadata:
-  name: ovnkube-node
+  name: ovnkube-node-dpu
   # namespace set up by install
   namespace: ovn-kubernetes
   annotations:
@@ -90,6 +90,12 @@ spec:
             cpu: 100m
             memory: 300Mi
         env:
+        - name: OVNKUBE_NODE_MODE
+          value: "dpu"
+        - name: OVNKUBE_NODE_MGMT_PORT_NETDEV
+          value: "enp10s0f0"
+        - name: OVN_ENCAP_IP
+          value: "192.168.1.120"
         - name: OVN_DAEMONSET_VERSION
           value: "3"
         - name: OVNKUBE_LOGLEVEL
@@ -188,8 +194,6 @@ spec:
           value: ""
         - name: OVN_LFLOW_CACHE_LIMIT_KB
           value: ""
-        - name: OVNKUBE_NODE_MGMT_PORT_NETDEV
-          value: ""
         - name: OVN_HOST_NETWORK_NAMESPACE
           valueFrom:
             configMapKeyRef:
@@ -236,6 +240,10 @@ spec:
             cpu: 100m
             memory: 300Mi
         env:
+        - name: K8S_NODE
+          value: "k8s-worker-0"
+        - name: K8S_NODE_IP
+          value: "192.168.1.110"
         - name: OVN_DAEMONSET_VERSION
           value: "3"
         - name: OVN_LOGLEVEL_CONTROLLER
@@ -258,45 +266,9 @@ spec:
           initialDelaySeconds: 30
           timeoutSeconds: 30
           periodSeconds: 60
-
-        # ovs-metrics-exporter - v3
-      - name: ovs-metrics-exporter
-        image: "docker.io/navadiaev/ovn-daemonset-virtio-f:latest"
-        imagePullPolicy: "Always"
-
-        command: ["/root/ovnkube.sh", "ovs-metrics"]
-
-        securityContext:
-          runAsUser: 0
-          capabilities:
-            add: ["NET_ADMIN"]
-
-        terminationMessagePolicy: FallbackToLogsOnError
-        volumeMounts:
-        - mountPath: /var/run/dbus/
-          name: host-var-run-dbus
-          readOnly: true
-        - mountPath: /var/log/openvswitch/
-          name: host-var-log-ovs
-        - mountPath: /var/run/openvswitch/
-          name: host-var-run-ovs
-          readOnly: true
-
-        resources:
-          requests:
-            cpu: 100m
-            memory: 300Mi
-        env:
-        - name: OVN_DAEMONSET_VERSION
-          value: "3"
-        - name: K8S_NODE_IP
-          valueFrom:
-            fieldRef:
-              fieldPath: status.hostIP
-        # end of container
       nodeSelector:
         kubernetes.io/os: "linux"
-        node-role.kubernetes.io/control-plane: ""
+        k8s.ovn.org/dpu: ""
       volumes:
       # Common volumes
       - name: host-var-run-dbus

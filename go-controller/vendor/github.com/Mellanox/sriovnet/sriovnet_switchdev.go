@@ -266,7 +266,7 @@ func GetVfRepresentorDPU(pfID, vfIndex string) (string, error) {
 // Note: this method does not support old representor names used by old kernels
 // e.g <vf_num> and will return PORT_FLAVOUR_UNKNOWN for such cases.
 func GetRepresentorPortFlavour(netdev string) (PortFlavour, error) {
-	if netdev == "enp1s0f0" {
+	if netdev == "ext" {
 		return PORT_FLAVOUR_PCI_PF, nil
 	}
 	return PORT_FLAVOUR_UNKNOWN, nil

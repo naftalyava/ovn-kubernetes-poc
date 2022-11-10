@@ -126,7 +126,7 @@ spec:
         - name: OVN_GATEWAY_MODE
           value: "shared"
         - name: OVN_GATEWAY_OPTS
-          value: "--gateway-interface=enp1s0"
+          value: ""
         - name: OVN_HYBRID_OVERLAY_ENABLE
           value: ""
         - name: OVN_EGRESSIP_ENABLE
