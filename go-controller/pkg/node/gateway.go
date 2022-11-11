@@ -191,7 +191,7 @@ func (g *gateway) Start(stopChan <-chan struct{}, wg *sync.WaitGroup) {
 
 	if g.openflowManager != nil {
 		klog.Info("Spawning Conntrack Rule Check Thread")
-		g.openflowManager.Run(stopChan, wg)
+		//g.openflowManager.Run(stopChan, wg)
 	}
 }
 

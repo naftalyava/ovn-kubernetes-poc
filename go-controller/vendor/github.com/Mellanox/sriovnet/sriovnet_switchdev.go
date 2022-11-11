@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	utilfs "github.com/Mellanox/sriovnet/pkg/utils/filesystem"
-	"github.com/Mellanox/sriovnet/pkg/utils/netlinkops"
 )
 
 const (
@@ -302,58 +301,17 @@ func parseDPUConfigFileOutput(out string) map[string]string {
 //	This method functionality is currently supported only on DPUs.
 //	Currently only netdev representors with PORT_FLAVOUR_PCI_PF are supported
 func GetRepresentorPeerMacAddress(netdev string) (net.HardwareAddr, error) {
-	flavor, err := GetRepresentorPortFlavour(netdev)
-	if err != nil {
-		return nil, fmt.Errorf("unknown port flavour for netdev %s. %v", netdev, err)
-	}
-	if flavor == PORT_FLAVOUR_UNKNOWN {
-		return nil, fmt.Errorf("unknown port flavour for netdev %s", netdev)
-	}
-	if flavor != PORT_FLAVOUR_PCI_PF {
-		return nil, fmt.Errorf("unsupported port flavour for netdev %s", netdev)
-	}
-
-	// Attempt to get information via devlink (Kernel >= 5.9.0)
-	port, err := netlinkops.GetNetlinkOps().DevLinkGetPortByNetdevName(netdev)
-	if err == nil {
-		if port.Fn != nil {
-			return port.Fn.HwAddr, nil
-		}
-	}
-
-	// Get information via sysfs
-	// read phy_port_name
-	portName, err := getNetDevPhysPortName(netdev)
-	if err != nil {
-		return nil, err
-	}
-	// Extract port num
-	portNum := pfPortRepRegex.FindStringSubmatch(portName)
-	if len(portNum) < 2 {
-		return nil, fmt.Errorf("failed to extract physical port number from port name %s of netdev %s",
-			portName, netdev)
-	}
-	uplinkPhysPortName := "p" + portNum[1]
-	// Find uplink netdev for that port
-	// Note(adrianc): As we support only DPUs ATM we do not need to deal with netdevs from different
-	// eswitch (i.e different switch IDs).
-	uplinkNetdev, err := findNetdevWithPortNameCriteria(func(pname string) bool { return pname == uplinkPhysPortName })
-	if err != nil {
-		return nil, fmt.Errorf("failed to find uplink port for netdev %s. %v", netdev, err)
-	}
 	// get MAC address for netdev
-	configPath := filepath.Join(NetSysDir, uplinkNetdev, "smart_nic", "pf", "config")
+	configPath := filepath.Join(NetSysDir, netdev, "address")
 	out, err := utilfs.Fs.ReadFile(configPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read DPU config via uplink %s for %s. %v",
-			uplinkNetdev, netdev, err)
+		return nil, fmt.Errorf("failed to read MAC address for %s", netdev, err)
 	}
-	config := parseDPUConfigFileOutput(string(out))
-	macStr, ok := config["MAC"]
-	if !ok {
-		return nil, fmt.Errorf("MAC address not found for %s", netdev)
-	}
+	macStr := string(out)
+	macStr = strings.TrimSuffix(macStr, "\n")
+
 	mac, err := net.ParseMAC(macStr)
+
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse MAC address \"%s\" for %s. %v", macStr, netdev, err)
 	}
@@ -365,42 +323,5 @@ func GetRepresentorPeerMacAddress(netdev string) (net.HardwareAddr, error) {
 // Note: This method functionality is currently supported only for DPUs.
 // Currently only netdev representors with PORT_FLAVOUR_PCI_VF are supported
 func SetRepresentorPeerMacAddress(netdev string, mac net.HardwareAddr) error {
-	flavor, err := GetRepresentorPortFlavour(netdev)
-	if err != nil {
-		return fmt.Errorf("unknown port flavour for netdev %s. %v", netdev, err)
-	}
-	if flavor == PORT_FLAVOUR_UNKNOWN {
-		return fmt.Errorf("unknown port flavour for netdev %s", netdev)
-	}
-	if flavor != PORT_FLAVOUR_PCI_VF {
-		return fmt.Errorf("unsupported port flavour for netdev %s", netdev)
-	}
-
-	physPortNameStr, err := getNetDevPhysPortName(netdev)
-	if err != nil {
-		return fmt.Errorf("failed to get phys_port_name for netdev %s: %v", netdev, err)
-	}
-	pfID, vfIndex, err := parsePortName(physPortNameStr)
-	if err != nil {
-		return fmt.Errorf("failed to get the pf and vf index for netdev %s "+
-			"with phys_port_name %s: %v", netdev, physPortNameStr, err)
-	}
-
-	uplinkPhysPortName := fmt.Sprintf("p%d", pfID)
-	uplinkNetdev, err := findNetdevWithPortNameCriteria(func(pname string) bool { return pname == uplinkPhysPortName })
-	if err != nil {
-		return fmt.Errorf("failed to find netdev for physical port name %s. %v", uplinkPhysPortName, err)
-	}
-	vfRepName := fmt.Sprintf("vf%d", vfIndex)
-	sysfsVfRepMacFile := filepath.Join(NetSysDir, uplinkNetdev, "smart_nic", vfRepName, "mac")
-	_, err = utilfs.Fs.Stat(sysfsVfRepMacFile)
-	if err != nil {
-		return fmt.Errorf("couldn't stat VF representor's sysfs file %s: %v", sysfsVfRepMacFile, err)
-	}
-	err = utilfs.Fs.WriteFile(sysfsVfRepMacFile, []byte(mac.String()), 0)
-	if err != nil {
-		return fmt.Errorf("failed to write the MAC address %s to VF reprentor %s",
-			mac.String(), sysfsVfRepMacFile)
-	}
 	return nil
 }
